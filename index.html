@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiskMap - ระบบเฝ้าระวังและเตือนภัยอุทกภัยปัตตานี</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f4f6f9;
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: 380px;
+            background: #ffffff;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .header {
+            background: #1e3c72;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header p {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .content {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #eef2f5;
+            padding-bottom: 5px;
+        }
+
+        /* Layer Controls */
+        .layer-group {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        .layer-item:last-child {
+            border-bottom: none;
+        }
+
+        .layer-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #475569;
+            cursor: pointer;
+        }
+
+        .layer-label i {
+            width: 18px;
+            text-align: center;
+        }
+
+        /* Switch Toggle */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2563eb;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(18px);
+        }
+
+        /* Status Summary Cards */
+        .status-card {
+            background: #ffffff;
+            border-left: 4px solid #ef4444;
+            border-radius: 6px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 12px;
+        }
+
+        .status-card.warning { border-left-color: #f59e0b; }
+        .status-card.info { border-left-color: #3b82f6; }
+
+        .status-card .title {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .status-card .value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 2px 0;
+        }
+
+        .status-card .desc {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        /* Data Source Badges */
+        .sources-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .source-badge {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Risk Formula Box */
+        .formula-box {
+            background: #f1f5f9;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.8rem;
+            color: #334155;
+            line-height: 1.4;
+        }
+
+        /* Map Styling */
+        #map {
+            flex: 1;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Custom Map Legend */
+        .legend {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            line-height: 1.5;
+            font-size: 0.8rem;
+            color: #333;
+        }
+
+        .legend h4 {
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: #1e293b;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+
+        /* Pulsing Beacon Animation for Warning Stations */
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .beacon-icon {
+            background-color: #ef4444;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            animation: pulse-red 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Control Panel -->
+    <div id="sidebar">
+        <div class="header">
+            <h1><i class="fa-solid fa-water"></i> RiskMap V2</h1>
+            <p>ระบบเตือนภัยอุทกภัยลุ่มน้ำปัตตานี & อ.เมืองปัตตานี</p>
+        </div>
+
+        <div class="content">
+            <!-- Data Sources -->
+            <div class="section-title">7 แหล่งข้อมูลเชื่อมโยง (Real-Time API)</div>
+            <div class="sources-grid">
+                <div class="source-badge"><i class="fa-solid fa-database"></i> สสน. (ThaiWater)</div>
+                <div class="source-badge"><i class="fa-solid fa-cloud-rain"></i> กรมทรัพยากรน้ำ</div>
+                <div class="source-badge"><i class="fa-solid fa-sun-plant-wilt"></i> กรมอุตุฯ (TMD)</div>
+                <div class="source-badge"><i class="fa-solid fa-globe"></i> ECMWF / Open-Meteo</div>
+                <div class="source-badge"><i class="fa-solid fa-satellite"></i> GISTDA</div>
+                <div class="source-badge"><i class="fa-solid fa-satellite-dish"></i> Sentinel-1 (EU)</div>
+                <div class="source-badge" style="grid-column: span 2;"><i class="fa-solid fa-server"></i> Supabase ประวัติน้ำท่วม 5 ปี</div>
+            </div>
+
+            <!-- Layer Controls -->
+            <div class="section-title">5 มิติเลเยอร์บนแผนที่</div>
+            <div class="layer-group">
+                <div class="layer-item">
+                    <span class="layer-label"><i class="fa-solid fa-layer-group" style="color: #ef4444;"></i> 13 พื้นที่ปกครอง (ความเสี่ยง)</span>
+                    <label class="switch"><input type="checkbox" id="layer-risk" checked><span class="slider"></span></label>
+                </div>
+                <div class="layer-item">
+                    <span class="layer-label"><i class="fa-solid fa-tower-broadcast" style="color: #0284c7;"></i> สถานีตรวจวัดน้ำ & Beacon</span>
+                    <label class="switch"><input type="checkbox" id="layer-stations" checked><span class="slider"></span></label>
+                </div>
+                <div class="layer-item">
+                    <span class="layer-label"><i class="fa-solid fa-location-dot" style="color: #dc2626;"></i> จุดน้ำท่วมซ้ำซาก 5 ปี</span>
+                    <label class="switch"><input type="checkbox" id="layer-history" checked><span class="slider"></span></label>
+                </div>
+                <div class="layer-item">
+                    <span class="layer-label"><i class="fa-solid fa-route" style="color: #2563eb;"></i> โครงข่ายทางน้ำ (ArcGIS)</span>
+                    <label class="switch"><input type="checkbox" id="layer-rivers" checked><span class="slider"></span></label>
+                </div>
+                <div class="layer-item">
+                    <span class="layer-label"><i class="fa-solid fa-satellite" style="color: #7c3aed;"></i> ภาพสะท้อนน้ำ Sentinel-1</span>
+                    <label class="switch"><input type="checkbox" id="layer-satellite" checked><span class="slider"></span></label>
+                </div>
+            </div>
+
+            <!-- Realtime Status -->
+            <div class="section-title">สถานการณ์ปัจจุบัน</div>
+            <div class="status-card">
+                <div class="title">สถานีเตือนภัย Beacon (แม่น้ำปัตตานี)</div>
+                <div class="value" style="color: #dc2626;">ระดับเตือนภัยสีแดง (ล้นตลิ่ง)</div>
+                <div class="desc">สถานี อ.เมืองปัตตานี: ระดับน้ำ +0.45 ม. จากระดับตลิ่ง</div>
+            </div>
+
+            <div class="status-card warning">
+                <div class="title">ปริมาณฝนคาดการณ์ (ECMWF 7 วัน)</div>
+                <div class="value">120 - 150 มม.</div>
+                <div class="desc">คาดการณ์ตกหนักต่อเนื่องในอีก 48 ชั่วโมงข้างหน้า</div>
+            </div>
+
+            <!-- Risk Formula -->
+            <div class="section-title">สูตรคำนวณคะแนนความเสี่ยง (0-100)</div>
+            <div class="formula-box">
+                <b>Risk Score Formula:</b><br>
+                <code>= (ฝนสะสม 7 วัน + ฝนคาดการณ์ + ประวัติน้ำท่วม 5 ปี) ÷ 3</code><br>
+                <small style="color: #64748b; display: block; margin-top: 4px;">* ใช้ระดับน้ำเรียลไทม์ และเรดาร์ Sentinel-1 เป็น Supporting Signals ให้เห็นภาพรวมจริง</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize Map centered at Pattani City
+        const map = L.map('map').setView([6.8669, 101.2503], 12);
+
+        // Base Map: OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors | RiskMap V2'
+        }).addTo(map);
+
+        // --- Layer Groups ---
+        const riskLayer = L.layerGroup().addTo(map);
+        const stationLayer = L.layerGroup().addTo(map);
+        const historyLayer = L.layerGroup().addTo(map);
+        const riverLayer = L.layerGroup().addTo(map);
+        const satelliteLayer = L.layerGroup().addTo(map);
+
+        // 1. Mock 13 Administrative Risk Areas (Polygons)
+        const riskAreas = [
+            { name: "ต.สะบารัง (อ.เมืองปัตตานี)", score: 88, level: "สูงมาก (Very High)", color: "#7f1d1d", coords: [[6.875, 101.240], [6.885, 101.255], [6.865, 101.260], [6.860, 101.245]] },
+            { name: "ต.รูสะมิแล (อ.เมืองปัตตานี)", score: 72, level: "สูง (High)", color: "#dc2626", coords: [[6.860, 101.220], [6.870, 101.235], [6.850, 101.240], [6.845, 101.225]] },
+            { name: "ต.ตะลุโบะ (อ.เมืองปัตตานี)", score: 55, level: "ปานกลาง (Medium)", color: "#f59e0b", coords: [[6.840, 101.250], [6.855, 101.270], [6.835, 101.280], [6.825, 101.255]] },
+            { name: "ต.บานา (อ.เมืองปัตตานี)", score: 35, level: "ต่ำ (Low)", color: "#10b981", coords: [[6.880, 101.265], [6.895, 101.285], [6.875, 101.295], [6.865, 101.275]] }
+        ];
+
+        riskAreas.forEach(area => {
+            L.polygon(area.coords, {
+                color: area.color,
+                fillColor: area.color,
+                fillOpacity: 0.45,
+                weight: 2
+            }).bindPopup(`
+                <div style="font-family: 'Sarabun'; font-size:0.9rem;">
+                    <b>${area.name}</b><br>
+                    <b>ระดับความเสี่ยง:</b> <span style="color:${area.color}">${area.level}</span><br>
+                    <b>คะแนน Risk Score:</b> ${area.score} / 100<br>
+                    <hr style="margin:5px 0;">
+                    <small>ฝนสะสม 7 วัน: 110 มม.<br>ฝนคาดการณ์: 130 มม.<br>ประวัติท่วม: 4 ครั้ง/5ปี</small>
+                </div>
+            `).addTo(riskLayer);
+        });
+
+        // 2. Mock Water Monitoring Stations & Beacons
+        const stations = [
+            { name: "สถานีประตูระบายน้ำแม่น้ำปัตตานี", type: "ประตูระบายน้ำ", status: "ปกติ", level: "3.20 ม.", coords: [6.855, 101.245], beacon: false },
+            { name: "สถานีเตือนภัยน้ำหลากสะบารัง", type: "สถานีเตือนภัย (Beacon)", status: "ล้นตลิ่ง (วิกฤต)", level: "5.85 ม.", coords: [6.870, 101.250], beacon: true },
+            { name: "สถานีตรวจวัดคลองซอย D8", type: "ในคลอง", status: "เฝ้าระวัง", level: "2.10 ม.", coords: [6.845, 101.265], beacon: false }
+        ];
+
+        stations.forEach(st => {
+            let marker;
+            if (st.beacon) {
+                // Red pulsing beacon icon
+                const beaconIcon = L.divIcon({
+                    className: 'beacon-icon',
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                });
+                marker = L.marker(st.coords, { icon: beaconIcon });
+            } else {
+                marker = L.circleMarker(st.coords, {
+                    radius: 7,
+                    fillColor: "#0284c7",
+                    color: "#ffffff",
+                    weight: 2,
+                    fillOpacity: 0.9
+                });
+            }
+
+            marker.bindPopup(`
+                <div style="font-family: 'Sarabun';">
+                    <b>${st.name}</b><br>
+                    ประเภท: ${st.type}<br>
+                    สถานะ: <b style="color:${st.beacon ? '#dc2626' : '#0284c7'}">${st.status}</b><br>
+                    ระดับน้ำปัจจุบัน: ${st.level}
+                </div>
+            `).addTo(stationLayer);
+        });
+
+        // 3. Historical Flood Points (5 Years Supabase Data)
+        const historyPoints = [
+            { year: "2024", coords: [6.871, 101.248] },
+            { year: "2023", coords: [6.868, 101.252] },
+            { year: "2023", coords: [6.863, 101.238] },
+            { year: "2022", coords: [6.873, 101.242] },
+            { year: "2020", coords: [6.858, 101.258] }
+        ];
+
+        historyPoints.forEach(pt => {
+            L.circleMarker(pt.coords, {
+                radius: 5,
+                fillColor: "#dc2626",
+                color: "#7f1d1d",
+                weight: 1,
+                fillOpacity: 0.8
+            }).bindPopup(`<b>จุดน้ำท่วมอดีต</b><br>ปีที่เกิดเหตุ: พ.ศ. ${parseInt(pt.year)+543} (${pt.year})`).addTo(historyLayer);
+        });
+
+        // 4. River Network (ArcGIS style polyline)
+        const pattaniRiver = [
+            [6.820, 101.260],
+            [6.835, 101.255],
+            [6.850, 101.248],
+            [6.868, 101.251],
+            [6.885, 101.242],
+            [6.895, 101.245]
+        ];
+        L.polyline(pattaniRiver, { color: '#2563eb', weight: 5, opacity: 0.8 }).bindPopup("<b>แม่น้ำปัตตานี</b>").addTo(riverLayer);
+
+        // 5. Copernicus Sentinel-1 Satellite Water Extent Overlay
+        const satelliteWater = [
+            [6.868, 101.242],
+            [6.878, 101.255],
+            [6.870, 101.262],
+            [6.862, 101.248]
+        ];
+        L.polygon(satelliteWater, {
+            color: '#7c3aed',
+            fillColor: '#8b5cf6',
+            fillOpacity: 0.5,
+            stroke: false
+        }).bindPopup("<b>พื้นที่น้ำท่วมขังจริงจากดาวเทียม Sentinel-1 (SAR)</b><br>สแกนเมื่อ: 6 ชม. ที่แล้ว").addTo(satelliteLayer);
+
+
+        // --- UI Layer Switch Listeners ---
+        document.getElementById('layer-risk').addEventListener('change', e => e.target.checked ? map.addLayer(riskLayer) : map.removeLayer(riskLayer));
+        document.getElementById('layer-stations').addEventListener('change', e => e.target.checked ? map.addLayer(stationLayer) : map.removeLayer(stationLayer));
+        document.getElementById('layer-history').addEventListener('change', e => e.target.checked ? map.addLayer(historyLayer) : map.removeLayer(historyLayer));
+        document.getElementById('layer-rivers').addEventListener('change', e => e.target.checked ? map.addLayer(riverLayer) : map.removeLayer(riverLayer));
+        document.getElementById('layer-satellite').addEventListener('change', e => e.target.checked ? map.addLayer(satelliteLayer) : map.removeLayer(satelliteLayer));
+
+        // --- Map Legend ---
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = `
+                <h4>ระดับความเสี่ยง (Risk Level)</h4>
+                <div class="legend-item"><div class="legend-color" style="background:#7f1d1d;"></div> สูงมาก (81-100)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#dc2626;"></div> สูง (61-80)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#f59e0b;"></div> ปานกลาง (41-60)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#10b981;"></div> ต่ำ (0-40)</div>
+                <hr style="margin: 6px 0;">
+                <div class="legend-item"><div class="legend-color" style="background:#8b5cf6;"></div> คราบน้ำ Sentinel-1</div>
+                <div class="legend-item"><div class="legend-color" style="background:#ef4444; border-radius:50%;"></div> สถานีเตือนภัย Beacon</div>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
+
